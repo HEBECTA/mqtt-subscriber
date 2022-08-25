@@ -93,10 +93,21 @@ int scan_topics(struct uci_context *ctx, struct uci_package *pkg, char ***topics
         return 0;
 }
 
-int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event **evs, int *events_nmb,const char **topics, int topics_nmb){
+int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event **evs, int *events_nmb, char **topics, int topics_nmb){
 
-        bool unsuccessfull_scan = false;
-        int events_n = 0;
+        int rc = 0;
+
+        int events_n = get_events_nmb(pkg);
+
+        if ( events_n == 0 )
+                return 0;
+
+        *evs = (struct event *) malloc(sizeof(struct event) * events_n);
+
+        if ( evs == NULL )
+                return ENOMEM;
+
+        int events_counter = 0;
 
         struct uci_element *e;
 
@@ -105,33 +116,35 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                 struct uci_section *s = uci_to_section(e);
                 if ( strcmp("event", s->type) == 0 ){
 
-                        char receivers[MAX_NAME_NMB][MAX_NAME_SIZE];
+                        int receivers_counter = 0;
+                        char receiving_emails[MAX_NAME_NMB][MAX_NAME_SIZE];
 
                         struct event *event = (struct event *) malloc(sizeof(struct event));
 
-                        if ( event == NULL  || unsuccessfull_scan) {
+                        if ( event == NULL ){
 
-                                for (int i = 0; i < events_n; ++i)
-                                        free(evs[i]);
-
-                                return ENOMEM; // ???
+                                rc = ENOMEM;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        ++events_n;
+                        //      T O P I C
 
                         struct uci_option *o = uci_lookup_option(ctx, s, "topic");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
-                        }
 
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
+                        }
 
                         event->topic_id = get_topic_id(topics, o->v.string, topics_nmb);
 
                         if ( event->topic_id == NO_SUCH_TOPIC ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         //      P A R A M E T E R
@@ -139,15 +152,26 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                         o = uci_lookup_option(ctx, s, "parameter");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
+                        }
+
+                        if ( strlen(o->v.string) > MAX_NAME_SIZE + 1 ){
+
+                                free(event);
+                                rc = ENOBUFS;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         event->parameter = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
 
                         if ( event->parameter == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event);
+                                rc = ENOMEM;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         strcpy(event->parameter, o->v.string);
@@ -157,8 +181,10 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                         o = uci_lookup_option(ctx, s, "value_type");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+                                free(event->parameter);
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         if ( strcmp("digit", o->v.string) )
@@ -168,8 +194,11 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                                 event->isDigit = false;
 
                         else{
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event->parameter);
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         //      C O M P A R I S O N
@@ -177,8 +206,19 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                         o = uci_lookup_option(ctx, s, "comparison");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event->parameter);
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
+                        }
+
+                        if ( strlen(o->v.string) > 2 ){ // ???? 2
+
+                                free(event->parameter);
+                                free(event);
+                                rc = ENOBUFS;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         strcpy(event->comparison, o->v.string);
@@ -188,33 +228,64 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                         o = uci_lookup_option(ctx, s, "value");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event->parameter);
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        event->comparison = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                        if ( strlen(o->v.string) > MAX_NAME_SIZE + 1 ){
 
-                        if ( event->comparison == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+                                free(event->parameter);
+                                free(event);
+                                rc = ENOBUFS;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        strcpy(event->comparison, o->v.string);
+                        event->expected_value = (char * ) malloc(sizeof(char) * strlen(o->v.string) + 1);
+
+                        if ( event->expected_value == NULL ){
+
+                                free(event->parameter);
+                                free(event);
+                                rc = ENOMEM;
+                                goto EXIT_SCAN_EVENT_ERROR;
+                        }
+
+                        strcpy(event->expected_value, o->v.string);
 
                         //      E M A I L   
 
                         o = uci_lookup_option(ctx, s, "email");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event->parameter);
+                                free(event->expected_value);
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
+                        }
+
+                        if ( strlen(o->v.string) > MAX_NAME_SIZE + 1 ){
+
+                                free(event->parameter);
+                                free(event->expected_value);
+                                free(event);
+                                rc = ENOBUFS;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         event->email = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
 
                         if ( event->email == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event->parameter);
+                                free(event->expected_value);
+                                free(event);
+                                rc = ENOMEM;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         strcpy(event->email, o->v.string);
@@ -224,54 +295,115 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
                         o = uci_lookup_option(ctx, s, "receiver");
 
                         if ( o == NULL ){
-                                unsuccessfull_scan = true;
-                                break;
+
+                                free(event->parameter);
+                                free(event->expected_value);
+                                free(event->email);
+                                free(event);
+                                rc = EINVAL;
+                                goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         struct uci_element *l;
-
-                        int receivers_nmb = 0;
 
                         uci_foreach_element(&o->v.list, l){
 
                                 if ( l->name ){
 
                                         if ( strlen(l->name ) + 1 > MAX_NAME_SIZE ){
-                                                unsuccessfull_scan = true;
-                                                break;
-                                        }
 
-                                        strcpy(receivers[receivers_nmb], l->name);
-                                        ++receivers_nmb;
+                                                free(event->parameter);
+                                                free(event->expected_value);
+                                                free(event->email);
+                                                free(event);
+                                                rc = ENOBUFS;
+                                                goto EXIT_SCAN_EVENT_ERROR;
+                                        }
+                                        
+                                        strcpy(receiving_emails[receivers_counter], l->name);
+                                        ++receivers_counter;
                                 }
                         }
 
-                        if ( receivers_nmb > 0 ){
+                        event->receivers = receivers_counter;
 
-                                event->receiving_emails = (char **) malloc(sizeof(char *)*receivers_nmb);
+                        printf("%d\n", receivers_counter);
+
+                        if ( receivers_counter > 0 ){
+
+                                event->receiving_emails = (char **) malloc(sizeof(char *)*receivers_counter);
 
                                 if ( event->receiving_emails == NULL ){
-                                        unsuccessfull_scan = true;
-                                        break;
+
+                                        free(event->parameter);
+                                        free(event->expected_value);
+                                        free(event->email);
+                                        free(event);
+                                        rc = ENOMEM;
+                                        goto EXIT_SCAN_EVENT_ERROR;
                                 }
 
-                                for (int i = 0; i < receivers_nmb; ++i ){
+                                for (int i = 0; i < receivers_counter; ++i ){
 
-                                        event->receiving_emails[i] = (char *) malloc(sizeof(char) * strlen(receivers[i]) + 1);
+                                        event->receiving_emails[i] = (char *) malloc(sizeof(char) * strlen(receiving_emails[i]) + 1);
 
-                                        if ( event->receiving_emails[i] == NULL ){
+                                        if ( event->receiving_emails == NULL ){
 
-                                                
+                                                free(event->parameter);
+                                                free(event->expected_value);
+                                                free(event->email);
+                                                free(event);
+
+                                                for (int k = 0; k < i; ++k)
+                                                        free(event->receiving_emails[k]);
+
+                                                rc = ENOMEM;
+                                                goto EXIT_SCAN_EVENT_ERROR;
                                         }
+
+                                        strcpy(event->receiving_emails[i], receiving_emails[i]);
                                 }
                         }
+
+                        else{
+
+                                ++events_counter;
+                                goto EXIT_SCAN_EVENT_ERROR;
+                        }
+
+                        (*evs)[events_counter] = *event;
+
+                        ++events_counter;
+
+                        if ( events_counter > events_n )
+                                goto EXIT_SCAN_EVENT_ERROR;
                 }
         }
 
+        *events_nmb = events_counter;
+
         return 0;
+
+EXIT_SCAN_EVENT_ERROR:
+
+        for (int i = 0; i < events_counter; ++i){
+
+                free((*evs)[i].parameter);
+                free((*evs)[i].expected_value);
+                free((*evs)[i].email);
+
+                for (int k = 0; k < (*evs)[i].receivers; ++k)
+                        free((*evs)[i].receiving_emails[k]);
+                
+                free((*evs)[i].receiving_emails);
+        }
+
+        free(*evs);
+
+        return rc;
 }
 
-int get_topic_id(const char **topics, const char *topic, int topics_nmb){
+int get_topic_id(char **topics, char *topic, int topics_nmb){
 
         for (int i = 0; i < topics_nmb; ++i){
 
@@ -284,12 +416,64 @@ int get_topic_id(const char **topics, const char *topic, int topics_nmb){
         return NO_SUCH_TOPIC;
 }
 
+static int get_events_nmb(struct uci_package *pkg){
+
+        int events_nmb = 0;
+
+        struct uci_element *e;
+
+        uci_foreach_element( &pkg->sections, e){
+
+                struct uci_section *s = uci_to_section(e);
+
+                if ( strcmp("event", s->type) == 0 )
+                        ++events_nmb;
+        }
+
+        return events_nmb;
+}
+
 void free_topics(char **topics, int topics_nmb){
 
+        for (int i = 0; i < topics_nmb; ++i )
+                free(topics[i]);
 
+        free(topics);
 }
 
 void free_events(struct event *events, int events_nmb){
 
+        for (int i = 0; i < events_nmb; ++i ){
 
+                free(events[i].parameter);
+                free(events[i].expected_value);
+                free(events[i].email);
+
+                for (int k = 0; k < events[i].receivers; ++k)
+                        free(events[i].receiving_emails[k]);
+
+                free(events[i].receiving_emails);
+        }
+
+        free(events);
+}
+
+void print_events(struct event *events, int events_nmb){
+
+        for (int i = 0; i < events_nmb; ++i ){
+
+                printf("topic %d\n", events[i].topic_id);
+                printf("parameter %s\n", events[i].parameter);
+                printf("isDigit %d\n", events[i].isDigit);
+                printf("comparison %s\n", events[i].comparison);
+                printf("expected_value %s\n", events[i].expected_value);
+                printf("email %s\n", events[i].email);
+                printf("receivers %d\n", events[i].receivers);
+
+                for (int k = 0; k < events[i].receivers; ++k)
+                        printf("receiving_emails %s\n", events[i].receiving_emails[k]);
+        }
+
+        printf("\n");
+        //printf("\n"); ????????????????
 }

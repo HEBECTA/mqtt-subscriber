@@ -6,7 +6,7 @@
 #include <uci.h>
 #include "uci_data.h"
 
-void sub_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos){
+void subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos){
 
         int i;
 
@@ -17,7 +17,9 @@ void sub_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, con
         printf("\n");
 }
 
-void msg_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message){
+void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message){
+
+        struct events *evs = (struct events *) obj;
 
         bool match = 0;
 	printf("got message '%.*s' for topic '%s'\n", message->payloadlen, (char*) message->payload, message->topic);
@@ -27,7 +29,7 @@ void msg_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_mess
 		printf("got message for uptime topic\n");
 	}
 }
-/*
+
 void conncet_callback(struct mosquitto *mosq, void *obj, int rc){
 
         printf("connect callback, rc=%d\n", result);
@@ -40,7 +42,7 @@ void conncet_callback(struct mosquitto *mosq, void *obj, int rc){
                 fprintf(stderr, "Connect failed\n");
         }
 }
-*/
+
 
 int main(int argc, char *argv[]){
 
@@ -68,7 +70,7 @@ int main(int argc, char *argv[]){
 	}
 
         int topics_n;
-        char **topics;
+        char **topics = NULL;
 
         rc = scan_topics(ctx, package, &topics, &topics_n);
         if ( rc ){
@@ -82,13 +84,54 @@ int main(int argc, char *argv[]){
         }
 
         int events_n;
-        struct events *events = NULL;
+        struct event *events = NULL;
 
-        scan_events(ctx, package, &events, &events_n, topics, topics_n);
+        rc = scan_events(ctx, package, &events, &events_n, topics, topics_n);
+        if ( rc ){
+                syslog(LOG_ERR, "unable to scan events from config file\n");
+                goto EXIT_PROGRAM;
+        }
 
+        mosquitto_lib_init();
 
-        free_topics(topics);
-        free_events(events);
+        struct events evs;
+        evs.events = events;
+        evs.events_n = events_n;
+
+        // client id ????
+        struct mosquitto *mosq = mosquitto_new(NULL, true, (void *)&evs);
+
+        if ( mosq == NULL ){
+                syslog(LOG_ERR, "Failed initialize mosquitto\n");
+                rc = EPERM;
+                goto EXIT_PROGRAM;
+        }
+
+        mosquitto_connect_callback_set(mosq, conncet_callback);
+        mosquitto_subscribe_callback_set(mosq, subscribe_callback);
+        mosquitto_message_callback_set(mosq, message_callback);
+
+        rc = mosquitto_username_pw_set(mosq, "username", "password");
+
+        //rc = mosquitto_tls_set(mosq, );
+
+        rc = mosquitto_connect(mosq, "localhost", 1883, 60);
+
+        for (int i = 0; i < topics_n; ++i ){
+
+                char buff[150];
+                sprintf(buff, "router/%s/%s", , topics[i]);
+                rc = mosquitto_subscribe(mosq, NULL, buff, 0);
+        }
+
+        rc = mosquitto_loop_forever(mosq, -1, 1);
+
+        print_events(events, events_n);
+
+        free_topics(topics, topics_n);
+        topics = NULL;
+        free_events(events, events_n);
+        events = NULL;
 
         
 /*
@@ -133,40 +176,18 @@ int main(int argc, char *argv[]){
         //printf("uci map n_sections = %u\n", uci_map.n_sections);
 
         printf("package element name = %s\n", package->e.name);
-
+/*
         return rc;
 
-        mosquitto_lib_init();
-
-        // client id ????
-        struct mosquitto *mosq = mosquitto_new(NULL, true, NULL);
-
-        if ( mosq == NULL ){
-                syslog(LOG_ERR, "Failed initialize mosquitto\n");
-                rc = EPERM;
-                goto EXIT_PROGRAM;
-        }
-
-        //rc = mosquitto_connect_callback_set(mosq, conncet_callback);
-        mosquitto_message_callback_set(mosq, msg_callback);
-        mosquitto_subscribe_callback_set(mosq, sub_callback);
-
-        //mosquitto_will_set();
-
-        //rc = mosquitto_username_pw_set(mosq, "username", "password");
-
-        //rc = mosquitto_tls_set(mosq, );
-
-        rc = mosquitto_connect(mosq, "localhost", 1883, 60);
-
-        rc = mosquitto_subscribe(mosq, NULL, "router/1122393453/uptime", 0);
-
-        rc = mosquitto_loop_forever(mosq, -1, 1);
-
+        
+*/
 EXIT_PROGRAM:
 
-        mosquitto_destroy(mosq);
-        mosquitto_lib_cleanup();
+        if ( topics == NULL )
+                printf("topics null\n");
+
+        //mosquitto_destroy(mosq);
+        //mosquitto_lib_cleanup();
 
         return rc;
 }

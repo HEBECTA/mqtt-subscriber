@@ -19,13 +19,21 @@ struct event {
         char **receiving_emails;
 };
 
+struct events {
+
+        struct event *events;
+        int events_n;
+};
+
 struct uci_context* init_uci(const char *file, struct uci_package **pkg);
 
 bool event_belongs_to_topic(struct uci_section *s, const char *topic);
 
 int scan_topics(struct uci_context *ctx, struct uci_package *pkg, char ***topics, int *topics_nmb);
 
-int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event **evs, int *events_nmb,const char **topics, int topics_nmb);
+int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event **evs, int *events_nmb, char **topics, int topics_nmb);
+
+static int get_events_nmb(struct uci_package *pkg);
 
 int write_topics();
 
@@ -35,6 +43,8 @@ void free_topics(char **topics, int topics_nmb);
 
 void free_events(struct event *events, int events_nmb);
 
-int get_topic_id(const char **topics, const char *topic, int topics_nmb);
+int get_topic_id(char **topics, char *topic, int topics_nmb);
+
+void print_events(struct event *events, int events_nmb);
 
 #endif
