@@ -1,0 +1,29 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+
+start_service(){
+        local enabled
+
+        config_load 'subscriber'
+        config_get enabled subscriber_sct 'enable' '0'
+       
+        if [ "$enabled" -eq 1 ]; then
+                procd_open_instance
+                procd_set_param stderr 1
+                procd_set_param command /usr/bin/subscriber
+                procd_set_param pidfile /var/run/subscriber.pid
+                procd_set_param file /etc/config/subscriber
+                procd_close_instance
+        fi
+}
+
+
+service_triggers() {
+        procd_add_reload_trigger "subscriber"
+}
+
+reload_service() {
+        stop
+        start
+}
