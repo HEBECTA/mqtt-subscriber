@@ -35,7 +35,7 @@ int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct event *
 
 static int get_events_nmb(struct uci_package *pkg);
 
-int write_topics();
+//int write_topics();
 
 int write_events();
 

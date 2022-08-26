@@ -1,7 +1,7 @@
 BIN:=subscriber
 SRC:=$(wildcard *.c)
 OBJS:=$(SRC:.c=.o)
-LDFLAGS:=-lmosquitto -largp -luci
+LDFLAGS:=-lmosquitto -largp -luci -lsqlite3 -lubus -lubox
 
 .PHONY: all clean
 

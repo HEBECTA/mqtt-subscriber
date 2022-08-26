@@ -7,7 +7,7 @@ PKG_VERSION:=1.0.0
 include $(INCLUDE_DIR)/package.mk
 
 define Package/subscriber
-	DEPENDS:=+libmosquitto-ssl +libuci
+	DEPENDS:=+libmosquitto-ssl +libuci +libsqlite3 +libubus
 	CATEGORY:=Base system
 	TITLE:=subscriber
 endef
