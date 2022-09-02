@@ -1,5 +1,35 @@
 #include "serial_ubus.h"
+/*
+int connect_ubus(uint32_t *id, struct ubus_context **ctx){
 
+        struct ubus_context *ctx = ubus_connect(NULL);
+
+	uloop_init();
+
+        if ( !(*ctx) ) 
+                return ECONNREFUSED;
+
+        if ( ubus_lookup_id(*ctx, "mnfinfo", id))
+                return ECONNREFUSED;
+                
+        return EXIT_SUCCESS;
+}
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
 static const struct blobmsg_policy serial_policy[__GET_MAX] = {
 	[SERIAL_DATA] = { .name = "serial", .type = BLOBMSG_TYPE_STRING },
 };
@@ -43,3 +73,4 @@ int connect_ubus(uint32_t *id, struct ubus_context **ctx){
                 
         return EXIT_SUCCESS;
 }
+*/

@@ -45,7 +45,7 @@ void close_file(){
         sqlite3_close(db);
 }
 
-int write_topic(const Topic *ptr_tp){
+int write_file(const Topic *ptr_tp){
 
         char *err_msg = 0;
 
@@ -101,3 +101,9 @@ int print_topic(const char *topic_name){
         return 0;
 }
 
+int delete_topic(const char *topic_name){
+
+        
+
+        return 0;
+}

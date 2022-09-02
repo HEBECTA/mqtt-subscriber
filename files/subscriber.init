@@ -7,11 +7,17 @@ start_service(){
 
         config_load 'subscriber'
         config_get enabled subscriber_sct 'enable' '0'
+        config_get host subscriber_sct 'host'
+        config_get port subscriber_sct 'port'
+        config_get user subscriber_sct 'username'
+        config_get pass subscriber_sct 'password'
+        config_get crt subscriber_sct 'tls'
+
        
         if [ "$enabled" -eq 1 ]; then
                 procd_open_instance
                 procd_set_param stderr 1
-                procd_set_param command /usr/bin/subscriber
+                procd_set_param command /usr/bin/subscriber "-h$host" "-p$port" "-u$user" "-P$pass" "-c$crt"
                 procd_set_param pidfile /var/run/subscriber.pid
                 procd_set_param file /etc/config/subscriber
                 procd_close_instance

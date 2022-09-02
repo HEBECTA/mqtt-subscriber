@@ -20,7 +20,8 @@ static const char *sql_init = "CREATE TABLE if not exists TOPICS_DATA ("
         "QoS                    INT,"
         "Date                   TEXT);";
 
-typedef struct Topic {
+// rename Message
+typedef struct Topic_sql {
 
         char topic[TOPIC_NAME_MAX_SIZE];
         char message[TOPIC_MESSAGE_BUFFER_SIZE];
@@ -34,9 +35,12 @@ int open_file();
 
 void close_file();
 
+// pointer param ???
 int write_file(const Topic *ptr_tp);
 
 int print_topic(const char *topic_name);
+
+int delete_topic(const char *topic_name);
 
 static sqlite3 *db;
 

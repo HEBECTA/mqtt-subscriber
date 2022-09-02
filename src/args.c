@@ -3,13 +3,14 @@
 #include <stdlib.h>  
 
 const char *argp_program_version =
-  "logs";
+  "MQTT";
 const char *argp_program_bug_address =
-  "<log@logs.org>";
+  "<username@domain.com>";
 
 char doc[] =
-  "a program with options to print logs";
+  "MQTT subcriber";
 
+// ????
 char args_doc[] = "ARG1 ARG2";
 
 struct argp_option options[] = {
@@ -17,8 +18,12 @@ struct argp_option options[] = {
    "host adress" },
   {"port",   'p', "port", 0,
    "port number" },
-  {"topic",   't', "topic", 0,
-   "topic to subscribe" },
+  {"user",   'u', "username", 0,
+   "user's ussername" },
+   {"pass",   'P', "password", 0,
+   "user's password" },
+   {"cafile",   'c', "certificate", 0,
+   "certificate file" },
    {0}
 };
 
@@ -36,8 +41,21 @@ parse_opt (int key, char *arg, struct argp_state *state)
         case 'h':
                 arguments->host = arg;
         break;
+
         case 'p':
                 arguments->port = atoi(arg);
+        break;
+
+        case 'u':
+                arguments->username = arg;
+        break;
+
+        case 'P':
+                arguments->password = arg;
+        break;
+
+        case 'c':
+                arguments->cert_file_path = arg;
         break;
 
         default:

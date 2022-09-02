@@ -16,6 +16,9 @@ struct arguments
 {
   char *host;
   int port;
+  char *username;
+  char *password;
+  char *cert_file_path;
 };
 
 error_t
