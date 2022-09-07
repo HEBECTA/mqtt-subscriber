@@ -12,8 +12,6 @@
 #include "curl_email.h"
 #include "args.h"
 
-//#include "serial_ubus.h"
-
 int prog_run;
 
 void sig_handler(int signum){
@@ -28,11 +26,12 @@ int main(int argc, char *argv[]){
         signal(SIGINT, sig_handler);
 
         prog_run = 1;
-        struct mosquitto *mosq = NULL;
+        struct mosquitto *mqtt_ctx = NULL;
         struct topic *topics_events = NULL;
         int topics_n = 0;
-        struct message msg_info;
+        struct message msg_info = {NULL, 0, NULL, 0, 0};
         struct arguments options = {"-", 0, "-", "-", "-"};
+        //struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/cert.cert.pem"};
 
         int rc = EXIT_SUCCESS;
 
@@ -49,11 +48,6 @@ int main(int argc, char *argv[]){
 
         //      P R O G R A M           A R G U M E N T S
 
-        for (int i = 0; i < argc; ++i ){
-
-                printf("%s\n", argv[i]);
-        }
-
         rc = args_parse(argc, argv, &options);
         if (rc){
                 syslog(LOG_ERR, "MQTT: Failed to parse program arguments\n");
@@ -61,47 +55,65 @@ int main(int argc, char *argv[]){
         }
 
         //      R E C E I V E   C O N F I G S
-
+        
         rc = scan_topics_events(&topics_events);
         if ( rc ){
                 syslog(LOG_ERR, "MQTT: failed to scan topics and events from config file\n");
                 goto EXIT_PROGRAM;
         }
 
+        //print_events(topics_events);
+
         //      M Q     T E L E M E T R Y        T R A N S P O R T
 
-        mosq  = mqtt_init_subscribe(topics_n, topics_events, &msg_info, options);
-        if ( mosq == NULL )
+        mosquitto_lib_init();
+
+        mqtt_ctx  = mqtt_init_subscribe(topics_n, topics_events, &msg_info, options);
+        if ( mqtt_ctx == NULL )
                 goto EXIT_PROGRAM;
 
         while ( prog_run ){
 
-                if ( mosquitto_loop(mosq, -1, 1) == MOSQ_ERR_SUCCESS ){
+                if ( mosquitto_loop(mqtt_ctx, -1, 1) == MOSQ_ERR_SUCCESS ){
 
                         if ( msg_info.received ){
 
                                 msg_info.received = 0;
 
-                                printf("message received, topic = %s\n", msg_info.topic);
+                                //printf("message received, topic = %s\n", msg_info.topic);
 
-                                printf("message %s\n", msg_info.msg);
+                                //printf("message %s\n", msg_info.msg);
 
-                                int topic_id = get_topic_id(topics_events, topics_n, msg_info.topic);
+                                struct topic *topic = get_topic_by_name(topics_events, msg_info.topic);
 
-                                if ( topic_id != NO_SUCH_TOPIC ){
+                                if ( topic != NULL ){
 
-                                        struct event *matchedEvent = topic_message_matches_event(topics_events[topic_id].ev_list, msg_info.msg);
+                                        struct event *matchedEvent = topic_message_matches_event(topic->ev_list, msg_info.msg);
 
                                         while ( matchedEvent != NULL ){
 
+                                                struct smtp_info *sender_info = scan_email(matchedEvent->email);
+                                                if ( sender_info == NULL ){
+
+                                                        syslog(LOG_ERR, "Failed to find sending email %s in user_groups", matchedEvent->email);
+                                                        continue;
+                                                }
+
                                                 syslog(LOG_NOTICE, "MQTT: Received subscribed topic %s which matches event", msg_info.topic);
 
-                                                for (int i = 0; i < matchedEvent->receivers; ++i){
-/*
-                                                        rc = send_email(matchedEvent->email, matchedEvent->receiving_emails[i], msg_info.topic, msg_info.msg);
+                                                struct email *email_list_iterator = matchedEvent->receiv_emails_list;
+                                                while ( email_list_iterator != NULL ){
+
+                                                        //printf("sending email to %s, matched value %s\n", email_list_iterator->email_name, matchedEvent->expected_value);
+
+                                                        rc = send_email(sender_info, email_list_iterator->email_name, msg_info.topic, msg_info.msg);
                                                         if ( rc )
-                                                                syslog(LOG_ERR, "Failed to send email to %s\n", matchedEvent->receiving_emails[i]);*/
+                                                                syslog(LOG_ERR, "Failed to send email to %s\n", email_list_iterator->email_name);
+
+                                                        email_list_iterator = email_list_iterator->next_email;
                                                 }
+
+                                                free_smtp_info(sender_info);
 
                                                 matchedEvent = topic_message_matches_event(matchedEvent->next_event, msg_info.msg);
                                         }
@@ -111,33 +123,28 @@ int main(int argc, char *argv[]){
                                         set_topic(&topic, msg_info.topic, msg_info.msg, QoS0, date);
 
                                         write_file(&topic);
-                                        
-                                        continue;
                                 }
                         }
+
+                        //free_message(msg_info); // ??? illegal isntruction
 
                         if ( !prog_run )
                                 break;
                 }
         }
 
-
-
 EXIT_PROGRAM:
 
-//while(1);
-
-        //ubus_free(ctx);
-	//uloop_done();
+        free_message(msg_info);
 
         if ( topics_events != NULL )
-                free_topics_events(topics_events, topics_n);
+                free_topics_events(topics_events);
 
         close_file();
         closelog();
 
-        if ( mosq != NULL )
-                mosquitto_destroy(mosq);
+        if ( mqtt_ctx != NULL )
+                mosquitto_destroy(mqtt_ctx);
 
         mosquitto_lib_cleanup();
 

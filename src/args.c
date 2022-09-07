@@ -67,7 +67,7 @@ parse_opt (int key, char *arg, struct argp_state *state)
 
 int args_parse(int argc, char *argv[], struct arguments *args){
 
-        int rc  = argp_parse (&argp, argc, argv, ARGP_NO_EXIT, 0, args);
+        int rc  = argp_parse(&argp, argc, argv, ARGP_NO_EXIT, 0, args);
 
         const char *empty = "-"; 
 

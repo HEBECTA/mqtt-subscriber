@@ -4,14 +4,19 @@ USE_PROCD=1
 
 start_service(){
         local enabled
+        local host
+        local port
+        local user
+        local pass
+        local crt
 
         config_load 'subscriber'
-        config_get enabled subscriber_sct 'enable' '0'
-        config_get host subscriber_sct 'host'
-        config_get port subscriber_sct 'port'
-        config_get user subscriber_sct 'username'
-        config_get pass subscriber_sct 'password'
-        config_get crt subscriber_sct 'tls'
+        config_get enabled subscriber_info 'enable' '0'
+        config_get host subscriber_info 'host'
+        config_get port subscriber_info 'port'
+        config_get user subscriber_info 'username'
+        config_get pass subscriber_info 'password'
+        config_get crt subscriber_info 'tls'
 
        
         if [ "$enabled" -eq 1 ]; then

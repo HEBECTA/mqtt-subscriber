@@ -11,7 +11,7 @@
 typedef enum QoS {QoS0, QoS1, QoS2} QoS;
 
 // log ? usr/topics ??
-static const char topics_file[] = "/log/mqtt_topics_data";
+static const char topics_file[] = "/log/mqtt_topics_data.db";
 
 static const char *sql_init = "CREATE TABLE if not exists TOPICS_DATA ("
         "ID                     INTEGER PRIMARY KEY,"

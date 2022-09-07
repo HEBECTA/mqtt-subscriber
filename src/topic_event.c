@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <json-c/json.h>
 
-struct topic *get_topic_id(struct topic *topics, const char *topic_name){
+struct topic *get_topic_by_name(struct topic *topics, const char *topic_name){
 
         while (topics != NULL ){
 
@@ -20,16 +21,19 @@ struct topic *get_topic_id(struct topic *topics, const char *topic_name){
 
 void free_topics_events(struct topic *topics){
 
-        if ( *topics != NULL ){
+        if ( topics != NULL ){
 
-                struct topic *iterator = *topics;
+                struct topic *iterator = topics;
                 struct topic *prev_node;
 
                 while ( iterator->next_topic != NULL ){
 
                         prev_node = iterator;
                         iterator = iterator->next_topic;
-                        free_event_list(prev_node->ev_list);
+                        if ( prev_node->ev_list != NULL )
+                                free_event_list(prev_node->ev_list);
+                        if ( prev_node->name != NULL )
+                                free(prev_node->name);
                         free(prev_node);
                 }
 
@@ -45,14 +49,25 @@ static void free_event_list(struct event *events){
                 free(events->parameter);
                 free(events->expected_value);
                 free(events->email);
+                free_email_list(events->receiv_emails_list);
 
-                for (int k = 0; k < events->receivers; ++k)
-                        free(events->receiving_emails[k]);
-
-                free(events->receiving_emails);
-
+                struct event *prev_event = events;
                 events = events->next_event;
-                free(events); // ??????
+
+                free(prev_event);
+        }
+}
+
+static void free_email_list(struct email *emails){
+
+        while (emails != NULL ){
+
+                free(emails->email_name);
+   
+                struct email *prev_email = emails;
+                emails = emails->next_email;
+
+                free(prev_email);
         }
 }
 
@@ -62,22 +77,26 @@ void print_events(struct topic *topics){
 
                 printf("topic %s\n\n", topics->name);
 
-                struct event *iterator = topics->ev_list;
+                struct event *event_list_iterator = topics->ev_list;
 
-                while ( iterator!= NULL ){
+                while ( event_list_iterator!= NULL ){
 
-                        if ( strlen(iterator->parameter) )
-                                printf("parameter %s\n", iterator->parameter);
-                        printf("isDigit %d\n", iterator->isDigit);
-                        printf("comparison %s\n", iterator->comparison);
-                        printf("expected_value %s\n", iterator->expected_value);
-                        printf("email %s\n", iterator->email);
-                        printf("receivers %d\n", iterator->receivers);
+                        if ( strlen(event_list_iterator->parameter) )
+                                printf("parameter %s\n", event_list_iterator->parameter);
+                        printf("isDigit %d\n", event_list_iterator->isDigit);
+                        printf("comparison %s\n", event_list_iterator->comparison);
+                        printf("expected_value %s\n", event_list_iterator->expected_value);
+                        printf("sending email %s\n", event_list_iterator->email);
 
-                        for (int o = 0; o < iterator->receivers; ++o)
-                                printf("receiving_emails %s\n", iterator->receiving_emails[o]);
+                        struct email *email_list_iterator = event_list_iterator->receiv_emails_list;
 
-                        iterator = iterator->next_event;
+                        while ( email_list_iterator != NULL ){
+
+                                printf("receiving_email %s\n", email_list_iterator->email_name);
+                                email_list_iterator = email_list_iterator->next_email;
+                        }
+
+                        event_list_iterator = event_list_iterator->next_event;
                 }
 
                 printf("\n");
@@ -88,10 +107,12 @@ void print_events(struct topic *topics){
 
 void print_topics(struct topic *topics){
 
-        while ( topics != NULL ){
+        struct topic *topics_list_iterator = topics;
 
-                printf("topic %s\n", topics->name);
-                topics = topics->next_topic;
+        while ( topics_list_iterator != NULL ){
+
+                printf("topic %s\n", topics_list_iterator->name);
+                topics_list_iterator = topics_list_iterator->next_topic;
         }
     
         printf("\n");
@@ -99,27 +120,44 @@ void print_topics(struct topic *topics){
 
 struct event *topic_message_matches_event(struct event *event, const char *msg){
 
+        struct json_object *jobj = NULL;
+        
+        jobj = json_tokener_parse(msg);
+
+        if ( jobj == NULL )
+                return NULL;
+
+        //else
+	        //printf("jobj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
+
         // it needed ?
         struct event *iterator = event;
 
         while ( iterator != NULL ){
 
-                char *val = msg;
+                struct json_object* param = json_object_object_get(jobj, iterator->parameter);
 
-                if ( strlen(iterator->parameter) )
-                        val = parameter(msg, iterator->parameter);
+                if ( param == NULL ){
 
-                if ( val == NULL ){
-
-                       iterator = iterator->next_event;
-                        continue; 
+                        return NULL;
                 }
 
-                if ( isNumber(val) == iterator->isDigit ){
+                enum json_type param_type = json_object_get_type(param);
 
-                        if ( compare_values(val, iterator->expected_value, iterator->comparison) )
+                if ( param_type == NULL ){
+
+                        return NULL;
+                }
+
+                if ( (iterator->isDigit && (param_type == json_type_int || param_type == json_type_double)) ||
+                !iterator->isDigit && json_type_string ){
+
+                        if (compare_values(json_object_get_string(param), iterator->expected_value, iterator->comparison))
                                 return iterator;
                 }
+/*
+                else
+                        printf("type dont match\n");*/
 
                 iterator = iterator->next_event;
         }
@@ -127,97 +165,12 @@ struct event *topic_message_matches_event(struct event *event, const char *msg){
         return NULL;
 }
 
-static int isNumber(const char *str){
-
-        for (int i = 0; str[i]!= '\0'; i++){
-
-                if (isdigit(str[i]) == 0)
-                        return 0;
-        }
-
-        return 1;
-}
-
-static char *parameter(const char *msg, const char *parameter){
-
-        char *param_ptr = strstr(msg, parameter);
-
-        if (param_ptr == NULL)
-                return NULL;
-
-	while ( *param_ptr != ':' ){
-
-                if ( *param_ptr == '\0' )
-                        return NULL;
-
-                param_ptr += sizeof(char);
-        }
-                
-        if ( *param_ptr == '\0' )
-                return NULL;
-
-        param_ptr += sizeof(char);
-
-	while ( *param_ptr == ' ' || *param_ptr == '\t' ){
-
-                if ( *param_ptr == '\0' )
-                        return NULL;
-
-                param_ptr += sizeof(char);
-        }
-
-	int single_quote = 0;
-
-	if ( *param_ptr == '\''){
-
-		single_quote = 1;
-
-		param_ptr += sizeof(char);
-
-		if ( *param_ptr == '\0' )
-                	return NULL;
-	}
-
-	char *end = param_ptr;
-	int size = 0;
-	
-	if ( single_quote ){
-
-		while ( *end != '\'' ){
-
-			end += sizeof(char);
-			++size;
-
-			if ( *end == '\0' )
-				return NULL;
-		}
-	}
-
-	else {
-
-		while ( *end != ' ' && *end != '\t' && *end != '}'){
-	
-			end += sizeof(char);
-			++size;
-
-			if ( *end == '\0' )
-				return NULL;
-		}
-	}
-
-        char *param = (char *) malloc(sizeof(char) * size + 1);
-
-        if ( param == NULL )
-                return NULL;
-
-        strncpy(param, param_ptr, size);
-
-        param[size] = '\0';
-
-        return param;
-}
-
 static int compare_values(const char *msg, const char *expected_value, const char *comparison){
+/*
+        if (msg[0] == '"'){
+
+                printf("string quotes\n");
+        }*/
 
         if ( strcmp(comparison, "==") == 0 ){
 

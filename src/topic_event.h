@@ -40,7 +40,9 @@ void free_topics_events(struct topic *topics);
 
 static void free_event_list(struct event *events);
 
-struct topic *get_topic_id(struct topic *topics, const char *topic_name);
+static void free_email_list(struct email *emails);
+
+struct topic *get_topic_by_name(struct topic *topics, const char *topic_name);
 
 struct event *topic_message_matches_event(struct event *event, const char *msg);
 

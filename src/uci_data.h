@@ -4,14 +4,26 @@
 #include "topic_event.h"
 #include "curl_email.h"
 
-#define MAX_NAME_SIZE 50
-#define MAX_NAME_NMB 50
-
 #define CONFIG_PATH "/etc/config/"
-//#define CONFIG_FILE "subscriber"
+#define TOPIC_EVENT_CONFIG_FILE "subscriber"
+#define USER_GROUPS_CONFIG_FILE "user_groups"
 #define TOPIC_CONFIG_SECTION "subscriber_info"
+#define USER_GROUPS_SECTION "email"
 #define TOPIC_OPTION "topic"
 #define EVENT_CONFIG_SECTION "event"
+#define EVENT_PARAMETER_OPTION "parameter"
+#define EVENT_VALUE_TYPE_OPTION "value_type"
+#define EVENT_COMPARISON_OPTION "comparison"
+#define EVENT_VALUE_OPTION "value"
+#define EVENT_EMAIL_OPTION "emailgroup"
+#define EVENT_REC_EMAIL_OPTION "recipEmail"
+
+#define EMAIL_SMTP_PORT_OPTION "smtp_port"
+#define EMAIL_SMTP_IP_OPTION "smtp_ip"
+#define EMAIL_OPTION "senderemail"
+#define EMAIL_CREDENTIALS_OPTION "credentials"
+#define EMAIL_USERNAME_OPTION "username"
+#define EMAIL_PASSWORD_OPTION "password"
 
 
 static struct uci_context* init_uci(const char *file, struct uci_package **pkg);

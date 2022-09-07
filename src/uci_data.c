@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <syslog.h>
 
 static struct uci_context* init_uci(const char *file, struct uci_package **pkg){
 
@@ -37,7 +38,7 @@ int scan_topics_events(struct topic **topics){
         struct uci_context *uci_ctx = NULL;
         struct uci_package *package = NULL;
 
-        uci_ctx = init_uci("subscriber", &package);
+        uci_ctx = init_uci(TOPIC_EVENT_CONFIG_FILE, &package);
         if (uci_ctx == NULL)
                 return ENODATA;
         
@@ -61,6 +62,8 @@ int scan_topics_events(struct topic **topics){
 
                 struct uci_element *l;
 
+                struct topic **iterator = topics;
+
                 uci_foreach_element(&o->v.list, l){
 
                         if ( l->name ){
@@ -73,24 +76,22 @@ int scan_topics_events(struct topic **topics){
                                         goto EXIT_ERROR_SCAN_TOPICS_EVENTS;
                                 }
 
-                                //topic->name = (char *) malloc(sizeof(char) * strlen(l->name))
+                                node->name = (char *) malloc(sizeof(char) * (strlen(l->name) + 1));
+                                if ( node->name == NULL ){
 
-                                node->name = l->name;
+                                        rc = ENOMEM;
+                                        goto EXIT_ERROR_SCAN_TOPICS_EVENTS;
+                                }
+
+                                strcpy(node->name, l->name);
+                                //node->name = l->name;
 
                                 node->next_topic = NULL;
                                 node->ev_list = NULL;
 
-                                if ( *topics == NULL )
-                                        *topics = node;
+                                *iterator = node;
 
-                                else{
-                                        struct topic *iterator = *topics->next_topic;
-
-                                        while ( iterator->next_topic != NULL )
-                                                iterator = iterator->next_topic;
-
-                                        iterator->next_topic = node;
-                                }
+                                iterator = &(*iterator)->next_topic;
                         }
                 }
         }       
@@ -104,7 +105,7 @@ int scan_topics_events(struct topic **topics){
         if ( rc ){
                 syslog(LOG_ERR, "Failed to scan events");
                 rc = 0;
-                //goto EXIT_ERROR_SCAN_TOPICS_EVENTS;
+                goto EXIT_ERROR_SCAN_TOPICS_EVENTS;
         }
 
         return rc;
@@ -121,7 +122,7 @@ EXIT_ERROR_SCAN_TOPICS_EVENTS:
 static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct topic *topics){
 
         int rc = 0;
-        struct event *node = NULL;
+        struct event *event_node = NULL;
         struct uci_element *e;
 
         uci_foreach_element( &pkg->sections, e){
@@ -130,7 +131,6 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                 if ( strcmp(EVENT_CONFIG_SECTION, s->type) == 0 ){
 
                         int receivers_counter = 0;
-                        char receiving_emails[MAX_NAME_NMB][MAX_NAME_SIZE];
 
                         //      T O P I C
 
@@ -139,20 +139,20 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                         if ( o == NULL )
                                 return EINVAL;
 
-                        node = (struct event *) malloc(sizeof(struct event));
+                        event_node = (struct event *) malloc(sizeof(struct event));
 
-                        if ( node == NULL )
+                        if ( event_node == NULL )
                                 return ENOMEM;
 
-                        node->parameter = NULL;
-                        node->expected_value = NULL;
-                        node->email = NULL;
-                        node->receiv_emails_list = NULL:
-                        node->next_event = NULL;
+                        event_node->parameter = NULL;
+                        event_node->expected_value = NULL;
+                        event_node->email = NULL;
+                        event_node->receiv_emails_list = NULL;
+                        event_node->next_event = NULL;
 
-                        struct topic *topic = get_topic(topics, o->v.string);
+                        struct topic *topic = get_topic_by_name(topics, o->v.string);
 
-                        if ( topic_id == NULL ){
+                        if ( topic == NULL ){
 
                                 rc = EINVAL;
                                 goto EXIT_SCAN_EVENT_ERROR;
@@ -160,7 +160,7 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
 
                         //      P A R A M E T E R
 
-                        o = uci_lookup_option(ctx, s, "parameter");
+                        o = uci_lookup_option(ctx, s, EVENT_PARAMETER_OPTION);
 
                         int parameter_flag = 1;
 
@@ -169,26 +169,26 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                                 
                        
                         if ( parameter_flag )
-                                node->parameter = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                                event_node->parameter = (char *) malloc(sizeof(char) * (strlen(o->v.string) + 1));
 
                         else 
-                                node->parameter = (char *) malloc(sizeof(char) * 1);
+                                event_node->parameter = (char *) malloc(sizeof(char) * 2);
 
-                        if ( node->parameter == NULL ){
+                        if ( event_node->parameter == NULL ){
 
                                 rc = ENOMEM;
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
                         if ( parameter_flag )
-                                strcpy(node->parameter, o->v.string);
+                                strcpy(event_node->parameter, o->v.string);
 
                         else
-                                node->parameter[0] = '\0';
+                                event_node->parameter[0] = '\0';
 
                         //      V A L U E    T Y P E
 
-                        o = uci_lookup_option(ctx, s, "value_type");
+                        o = uci_lookup_option(ctx, s, EVENT_VALUE_TYPE_OPTION);
 
                         if ( o == NULL ){
 
@@ -197,10 +197,10 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                         }
 
                         if ( strcmp("digit", o->v.string) == 0 )
-                                node->isDigit = true;
+                                event_node->isDigit = true;
 
                         else if (strcmp("string", o->v.string) == 0)
-                                node->isDigit = false;
+                                event_node->isDigit = false;
 
                         else{
                                 rc = EINVAL;
@@ -209,7 +209,7 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
 
                         //      C O M P A R I S O N
 
-                        o = uci_lookup_option(ctx, s, "comparison");
+                        o = uci_lookup_option(ctx, s, EVENT_COMPARISON_OPTION);
 
                         if ( o == NULL ){
 
@@ -223,11 +223,11 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        strcpy(node->comparison, o->v.string);
+                        strcpy(event_node->comparison, o->v.string);
 
                         //      V A L U E    
 
-                        o = uci_lookup_option(ctx, s, "value");
+                        o = uci_lookup_option(ctx, s, EVENT_VALUE_OPTION);
 
                         if ( o == NULL ){
 
@@ -235,19 +235,19 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        node->expected_value = (char * ) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                        event_node->expected_value = (char * ) malloc(sizeof(char) * (strlen(o->v.string) + 1));
 
-                        if ( node->expected_value == NULL ){
+                        if ( event_node->expected_value == NULL ){
 
                                 rc = ENOMEM;
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        strcpy(node->expected_value, o->v.string);
+                        strcpy(event_node->expected_value, o->v.string);
 
                         //      E M A I L   
 
-                        o = uci_lookup_option(ctx, s, "emailgroup");
+                        o = uci_lookup_option(ctx, s, EVENT_EMAIL_OPTION);
 
                         if ( o == NULL ){
 
@@ -255,25 +255,27 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        node->email = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                        event_node->email = (char *) malloc(sizeof(char) * (strlen(o->v.string) + 1));
 
-                        if ( node->email == NULL ){
+                        if ( event_node->email == NULL ){
 
                                 rc = ENOMEM;
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        strcpy(node->email, o->v.string);
+                        strcpy(event_node->email, o->v.string);
 
                         //      R E C E I V I N G       E M A I L S
 
-                        o = uci_lookup_option(ctx, s, "recipEmail");
+                        o = uci_lookup_option(ctx, s, EVENT_REC_EMAIL_OPTION);
 
                         if ( o == NULL ){
 
                                 rc = EINVAL;
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
+
+                        struct email **email_list_iterator = &(event_node->receiv_emails_list);
 
                         struct uci_element *l;
 
@@ -281,78 +283,42 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
 
                                 if ( l->name ){
 
-                                        struct email *node = (struct email *) malloc(sizeof(struct email));
+                                        struct email *email_node = (struct email *) malloc(sizeof(struct email));
 
-                                        if ( node == NULL ){
+                                        if ( email_node == NULL ){
 
                                                 rc = ENOMEM;
-                                        }
-
-                                        if ( strlen(l->name ) + 1 > MAX_NAME_SIZE ){
-
-                                                rc = ENOBUFS;
                                                 goto EXIT_SCAN_EVENT_ERROR;
                                         }
-                                        
-                                        strcpy(receiving_emails[receivers_counter], l->name);
+
+                                        email_node->email_name = l->name;
+
+                                        email_node->next_email = NULL;
+
+                                        *email_list_iterator = email_node;
+                                        email_list_iterator = &(*email_list_iterator)->next_email;
+
                                         ++receivers_counter;
                                 }
                         }
 
-                        node->receivers = receivers_counter;
+                        if ( receivers_counter < 1 ){
 
-                        if ( receivers_counter > 0 ){
-
-                                node->receiving_emails = (char **) malloc(sizeof(char *)*receivers_counter);
-
-                                if ( node->receiving_emails == NULL ){
-
-                                        rc = ENOMEM;
-                                        goto EXIT_SCAN_EVENT_ERROR;
-                                }
-
-                                for (int i = 0; i < receivers_counter; ++i ){
-
-                                        node->receiving_emails[i] = (char *) malloc(sizeof(char) * strlen(receiving_emails[i]) + 1);
-
-                                        if ( node->receiving_emails[i] == NULL ){
-
-                                                free(node->parameter);
-                                                free(node->expected_value);
-                                                free(node->email);
- 
-                                                for (int k = 0; k < i; ++k)
-                                                        free(node->receiving_emails[k]);
-
-                                                free( node );
-
-                                                rc = ENOMEM;
-                                                goto EXIT_SCAN_EVENT_ERROR;
-                                        }
-
-                                        strcpy(node->receiving_emails[i], receiving_emails[i]);
-                                }
-                        }
-
-                        else{
-                                rc = ;
+                                rc = ENODATA;
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-
-                        node->next_event = NULL;
-
-                        if ( topic.ev_list == NULL )
-                                topic.ev_list = node;
+                        if ( topic->ev_list == NULL )
+                                topic->ev_list = event_node;
 
                         else{
 
-                                struct event *iterator = topic.ev_list;
+                                struct event *iterator = topic->ev_list;
 
                                 while ( iterator->next_event != NULL )
                                         iterator = iterator->next_event;
 
-                                iterator->next_event = node;
+                                iterator->next_event = event_node;
                         }
                 }
         }
@@ -362,40 +328,27 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
 
 EXIT_SCAN_EVENT_ERROR:
 
-        free_email( node );
+        if (event_node->parameter != NULL )
+                free(event_node->parameter);
 
-        /*
+        if (event_node->expected_value != NULL )
+                free(event_node->expected_value);
 
-        while ( topics != NULL ){
+        if (event_node->email != NULL )
+                free(event_node->email);
 
-                struct event *iterator = topics->ev_list;
-                struct event *prev_node;
+        if (event_node->receiv_emails_list != NULL ){
 
-                while ( iterator != NULL ){
+                struct email *email_list_iterator = event_node->receiv_emails_list;
+                struct email *prev_email = email_list_iterator;
 
-                        prev_node = iterator;
-                        iterator = iterator->next_event;
-                        free(prev_node->parameter);
-                        free(prev_node->expected_value);
-                        free(prev_node->email);
+                while ( email_list_iterator != NULL ){
 
-                        for (int i = 0; i < prev_node->receivers; ++i)
-                                free(prev_node->receiving_emails[i]);
-
-                        free(prev_node);
+                        email_list_iterator = email_list_iterator->next_email;
+                        free(prev_email);
+                        prev_email = email_list_iterator;
                 }
-
-                free(iterator->parameter);
-                free(iterator->expected_value);
-                free(iterator->email);
-
-                for (int i = 0; i < iterator->receivers; ++i)
-                        free(iterator->receiving_emails[i]);
-
-                free(iterator);
         }
-
-        */
 
         return rc;
 }
@@ -405,18 +358,21 @@ struct smtp_info *scan_email(const char *user_group){
         struct uci_context *uci_ctx = NULL;
         struct uci_package *package = NULL;
 
-        uci_ctx = init_uci("user_groups", &package);
+        int port = 0;
+        int port_len = 0;
+
+        uci_ctx = init_uci(USER_GROUPS_CONFIG_FILE, &package);
         if (uci_ctx == NULL)
                 return NULL;
 
-        struct smtp_info *smtp_info;
+        struct smtp_info *smtp_info = NULL;
 
         struct uci_element *e;
 
         uci_foreach_element( &package->sections, e){
 
                 struct uci_section *s = uci_to_section(e);
-                if ( strcmp("email", s->type) == 0 ){
+                if ( strcmp(USER_GROUPS_SECTION, s->type) == 0 ){
 
                         struct uci_option *o = uci_lookup_option(uci_ctx, s, "name");
                         if ( o == NULL )
@@ -429,88 +385,79 @@ struct smtp_info *scan_email(const char *user_group){
                                 if ( smtp_info == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
 
-                                o = uci_lookup_option(uci_ctx, s, "smtp_port");
-                                if ( o == NULL ){
+                                smtp_info->sending_email = NULL;
+                                smtp_info->smtp_domain = NULL;
+                                smtp_info->username = NULL;
+                                smtp_info->password = NULL;
 
-                                        free(smtp_info);
+                                o = uci_lookup_option(uci_ctx, s, EMAIL_SMTP_PORT_OPTION);
+                                if ( o == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
-                                }
+                                
 
-                                smtp_info->port = atoi(o->v.string);
+                                port = atoi(o->v.string);
+                                //smtp_info->port = atoi(o->v.string);
 
-                                if ( !smtp_info->port ){
-
-                                        free(smtp_info);
+                                if ( !port )
                                         goto EXIT_SCAN_EMAIL_ERROR;
-                                }
+                                
 
-                                o = uci_lookup_option(uci_ctx, s, "smtp_ip");
-                                if ( o == NULL ){
-
-                                        free(smtp_info);
+                                o = uci_lookup_option(uci_ctx, s, EMAIL_SMTP_IP_OPTION);
+                                if ( o == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
-                                }
+                                
 
-                                smtp_info->smtp_domain = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                                int n = port;
+                                do {
+                                n /= 10;
+                                ++port_len;
+                                } while (n != 0);
 
-                                if ( smtp_info->smtp_domain == NULL ){
+                                //smtp_info->smtp_domain = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                                smtp_info->smtp_domain = (char *) malloc(sizeof(char) * (strlen("smtp://") + strlen(o->v.string) + strlen(":") + port_len) + 1);
 
-                                        free(smtp_info);
+                                if ( smtp_info->smtp_domain == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
-                                }
+                                
+                                sprintf(smtp_info->smtp_domain, "smtp://%s:%d", o->v.string, port);
 
-                                strcpy(smtp_info->smtp_domain, o->v.string);
+                                //strcpy(smtp_info->smtp_domain, o->v.string);
 
-                                o = uci_lookup_option(uci_ctx, s, "senderemail");
-                                if ( o == NULL ){
-
-                                        free(smtp_info->smtp_domain);
-                                        free(smtp_info->username);
-                                        free(smtp_info);
+                                o = uci_lookup_option(uci_ctx, s, EMAIL_OPTION);
+                                if ( o == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
-                                }
+                                
 
-                                smtp_info->sending_email = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                                smtp_info->sending_email = (char *) malloc(sizeof(char) * (strlen(o->v.string) + 1));
 
                                 strcpy(smtp_info->sending_email, o->v.string);
 
-                                o = uci_lookup_option(uci_ctx, s, "credentials");
-                                if ( o == NULL ){
-
-                                        free(smtp_info->smtp_domain);
-                                        free(smtp_info);
+                                o = uci_lookup_option(uci_ctx, s, EMAIL_CREDENTIALS_OPTION);
+                                if ( o == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
-                                }
+                                
 
                                 if ( strcmp(o->v.string, "1") == 0 ){
 
-                                        o = uci_lookup_option(uci_ctx, s, "username");
-                                        if ( o == NULL ){
-
-                                                free(smtp_info->smtp_domain);
-                                                free(smtp_info->username);
-                                                free(smtp_info);
+                                        o = uci_lookup_option(uci_ctx, s, EMAIL_USERNAME_OPTION);
+                                        if ( o == NULL )
                                                 goto EXIT_SCAN_EMAIL_ERROR;
-                                        }
 
-                                        smtp_info->username = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                                        smtp_info->username = (char *) malloc(sizeof(char) * (strlen(o->v.string) + 1));
                                         strcpy(smtp_info->username, o->v.string);
 
-                                        o = uci_lookup_option(uci_ctx, s, "password");
-                                        if ( o == NULL ){
-
-                                                free(smtp_info->smtp_domain);
-                                                free(smtp_info->username);
-                                                free(smtp_info);
+                                        o = uci_lookup_option(uci_ctx, s, EMAIL_PASSWORD_OPTION);
+                                        if ( o == NULL )
                                                 goto EXIT_SCAN_EMAIL_ERROR;
-                                        }
+                                        
 
-                                        smtp_info->password = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
+                                        smtp_info->password = (char *) malloc(sizeof(char) * (strlen(o->v.string) + 1));
                                         strcpy(smtp_info->password, o->v.string);
                                 }
 
                                 else{
-                                        printf("no crdencials\n");
+                                        syslog(LOG_ERR, "MQTT: No sending email credentials");
+                                        goto EXIT_SCAN_EMAIL_ERROR;
                                 }
 
                                 goto SUCCESSFUL_EXIT;
@@ -520,15 +467,28 @@ struct smtp_info *scan_email(const char *user_group){
 
 SUCCESSFUL_EXIT:
 
-printf("good emails\n");
-
         uci_free_context(uci_ctx);
 
         return smtp_info;
 
 EXIT_SCAN_EMAIL_ERROR:
 
-printf("wrong emails\n");
+        if ( smtp_info != NULL ){
+
+                if ( smtp_info->sending_email != NULL )
+                        free(smtp_info->sending_email);
+
+                if ( smtp_info->smtp_domain != NULL )
+                        free(smtp_info->smtp_domain);
+
+                if ( smtp_info->username != NULL )
+                        free(smtp_info->username);
+
+                if ( smtp_info->password != NULL )
+                        free(smtp_info->password);
+
+                free(smtp_info);
+        }
 
         uci_free_context(uci_ctx);
 

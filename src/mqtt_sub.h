@@ -7,8 +7,6 @@
 
 #define RECONNECT_WAIT_TIME 5
 #define RECONNECT_NUMBER 5
-#define MAX_TOPIC_NAME_LEN 100
-#define MESSSAGE_BUFF_SIZE 250
 
 #define QoS0 0
 #define QoS1 1
@@ -17,8 +15,10 @@
 
 struct message{
 
-        char topic[MAX_TOPIC_NAME_LEN];
-        char msg[MESSSAGE_BUFF_SIZE];
+        char *topic;
+        int topic_len;
+        char *msg;
+        int msg_len;
         int received;
 };
 
@@ -28,8 +28,10 @@ void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_
 
 void conncet_callback(struct mosquitto *mosq, void *obj, int rc);
 
-void log_callback(struct mosquitto *mosq, void *obj, int level, const char *str);
+//void log_callback(struct mosquitto *mosq, void *obj, int level, const char *str);
 
 struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, struct message *msg_info, struct arguments options);
+
+void free_message(struct message msg_ingo);
 
 #endif
