@@ -5,6 +5,9 @@
 #include <string.h>
 #include <curl/curl.h>
 
+#include "topic_event.h"
+#include "mqtt_sub.h"
+
 #define CERTIFICATE_PATH "/etc/ssl/certs/ca-certificates.crt"
  
 struct smtp_info {
@@ -25,5 +28,7 @@ struct upload_status {
 void free_smtp_info(struct smtp_info *smtp_info);
 
 int send_email(struct smtp_info *sender_info, const char *receiver, const char *subject, const char *message);
+
+int send_emails(struct event *event, struct message *msg_info);
 
 #endif

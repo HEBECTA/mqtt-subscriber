@@ -118,7 +118,32 @@ void print_topics(struct topic *topics){
         printf("\n");
 }
 
-struct event *topic_message_matches_event(struct event *event, const char *msg){
+int send_matched_events_emails(struct event *topics_events, struct message *msg_info){
+
+        //      find which topic was received
+
+        struct topic *matchedTopic = get_topic_by_name(topics_events, msg_info->topic);
+
+        if ( matchedTopic == NULL )
+                return ENOMSG;
+
+        //      loop all topic events
+
+        struct event *matchedEvent = topic_message_matches_event(matchedTopic->ev_list, msg_info->msg);
+        while ( matchedEvent != NULL ){
+
+                //      if event is matched, send emails
+                if ( send_emails(matchedEvent, msg_info) )
+                        return ECOMM;
+                
+                matchedEvent = topic_message_matches_event(matchedEvent->next_event, msg_info->msg);
+        }
+
+        return 0;
+}
+
+struct event *topic_message_matches_event(struct event *matchedEvent, const char *msg){
+
 
         struct json_object *jobj = NULL;
         
@@ -131,7 +156,7 @@ struct event *topic_message_matches_event(struct event *event, const char *msg){
 	        //printf("jobj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
 
         // it needed ?
-        struct event *iterator = event;
+        struct event *iterator = matchedEvent;
 
         while ( iterator != NULL ){
 

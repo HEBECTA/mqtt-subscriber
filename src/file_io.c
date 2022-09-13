@@ -14,9 +14,7 @@ static int callback(void *data, int argc, char **argv, char **azColName){
    return 0;
 }
 
-void set_topic(Topic *ptr_tp, const char *tp, const char *msg, QoS qoS, time_t date){
-
-        ptr_tp->qoS = qoS;
+void set_topic(Topic *ptr_tp, const char *tp, const char *msg, time_t date){
 
         strncpy(ptr_tp->message, msg, TOPIC_MESSAGE_BUFFER_SIZE);
 
@@ -60,9 +58,9 @@ int write_file(const Topic *ptr_tp){
 
         char sql[TOPIC_MESSAGE_BUFFER_SIZE+TOPIC_NAME_MAX_SIZE+100];
 
-        sprintf(sql, "INSERT INTO TOPICS_DATA (Topic, Message, QoS, Date) "  \
-         "VALUES (\"%s\", \"%s\", %d, \"%s\");", ptr_tp->topic, ptr_tp->message, \
-          ptr_tp->qoS, ctime(&ptr_tp->date));
+        sprintf(sql, "INSERT INTO TOPICS_DATA (Topic, Message, Date) "  \
+         "VALUES (\"%s\", \"%s\", \"%s\");", ptr_tp->topic, ptr_tp->message, \
+         ctime(&ptr_tp->date));
      
         rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
         
@@ -104,6 +102,17 @@ int print_topic(const char *topic_name){
 int delete_topic(const char *topic_name){
 
         
+
+        return 0;
+}
+
+int write_topic_to_file(struct message *msg_info){
+
+        Topic topic;
+        time_t date = time(0); 
+        set_topic(&topic, msg_info->topic, msg_info->msg, date);
+
+        write_file(&topic);
 
         return 0;
 }

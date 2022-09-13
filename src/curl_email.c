@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <syslog.h>
 #include "uci_data.h"
 
 
@@ -28,6 +30,33 @@ static size_t payload_source(char *ptr, size_t size, size_t nmemb, void *userp)
     return len;
   }
  
+  return 0;
+}
+
+int send_emails(struct event *event, struct message *msg_info){
+
+  struct smtp_info *sender_info = scan_email(event->email);
+
+  if ( sender_info == NULL ){
+
+    syslog(LOG_ERR, "MQTT: Failed to find sending email %s in user_groups", event->email);
+
+    return ENODATA;
+  }
+    
+  struct email *email_list_iterator = event->receiv_emails_list;
+  while ( email_list_iterator != NULL ){
+
+  //printf("sending email to %s, matched value %s\n", email_list_iterator->email_name, matchedEvent->expected_value);
+  
+    if ( send_email(sender_info, email_list_iterator->email_name, msg_info->topic, msg_info->msg) )
+      syslog(LOG_ERR, "MQTT: Failed to send email to %s\n", email_list_iterator->email_name);
+
+      email_list_iterator = email_list_iterator->next_email;
+  }
+
+  free_smtp_info(sender_info);
+
   return 0;
 }
 

@@ -34,4 +34,6 @@ struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, stru
 
 void free_message(struct message msg_ingo);
 
+void mqtt_free(struct mosquitto *mosq);
+
 #endif

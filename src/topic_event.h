@@ -4,6 +4,8 @@
 
 #include <stdbool.h>
 
+#include "mqtt_sub.h"
+
 #define MAX_TOPIC_NAME_LEN 100
 
 
@@ -44,7 +46,9 @@ static void free_email_list(struct email *emails);
 
 struct topic *get_topic_by_name(struct topic *topics, const char *topic_name);
 
-struct event *topic_message_matches_event(struct event *event, const char *msg);
+int send_matched_events_emails(struct event *topics_events, struct message *msg_info);
+
+struct event *topic_message_matches_event(struct event *matchedEvent, const char *msg);
 
 static int isNumber(const char *str);
 

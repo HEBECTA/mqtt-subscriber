@@ -109,6 +109,8 @@ void log_callback(struct mosquitto *mosq, void *obj, int level, const char *str)
 */
 struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, struct message *msg_info, struct arguments options){
 
+        mosquitto_lib_init();
+
         int rc = 0;
 
         // client id ????
@@ -185,4 +187,12 @@ EXIT_MQTT_INIT_ERROR:
         mosquitto_destroy(mosq);
 
         return NULL;
+}
+
+void mqtt_free(struct mosquitto *mosq){
+
+        if ( mosq != NULL )
+                mosquitto_destroy(mosq);
+
+        mosquitto_lib_cleanup();
 }
