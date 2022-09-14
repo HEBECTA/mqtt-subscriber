@@ -9,8 +9,6 @@
 
 void free_message(struct message msg_info){
 
-        printf("before clean msg\n");
-
         if ( msg_info.topic != NULL ){
 
                 free(msg_info.topic);
@@ -26,8 +24,6 @@ void free_message(struct message msg_info){
         msg_info.received = 0;
         msg_info.topic_len = 0;
         msg_info.msg_len = 0;
-
-        printf("after clean msg\n");
 }
 
 void subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos){
@@ -41,9 +37,6 @@ void subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_coun
 void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message){
 
         struct message *msg_info = (struct message *) obj;
-
-        //memset(msg_info->topic, 0, msg_info->topic_len);
-        //memset(msg_info->msg, 0, msg_info->msg_len);
 
         // increase buff size if new message is larger than previous ones
         int local_topic_len = strlen(message->topic);
@@ -94,26 +87,14 @@ void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_
         strcpy(msg_info->msg, (char*) message->payload);
 
         msg_info->received = 1;
-
-        /*
-	mosquitto_topic_matches_sub("router/1122393453/uptime", message->topic, &match);
-	if (match) {
-		printf("got message for uptime topic\n");
-	}*/
 }
-/*
-void log_callback(struct mosquitto *mosq, void *obj, int level, const char *str){
 
-        syslog(LOG_NOTICE, "Log MQtt: %s\n", str);
-}
-*/
 struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, struct message *msg_info, struct arguments options){
 
         mosquitto_lib_init();
 
         int rc = 0;
 
-        // client id ????
         struct mosquitto *mosq = mosquitto_new(NULL, true, (void *)msg_info);
 
         if ( mosq == NULL ){
@@ -123,7 +104,6 @@ struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, stru
 
         mosquitto_subscribe_callback_set(mosq, subscribe_callback);
         mosquitto_message_callback_set(mosq, message_callback);
-        //mosquitto_log_callback_set(mosq, log_callback);
 
         if ( strcmp(options.username, "-") && strcmp(options.password, "-") ){
 

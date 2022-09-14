@@ -1,6 +1,5 @@
 #include "topic_event.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -71,54 +70,7 @@ static void free_email_list(struct email *emails){
         }
 }
 
-void print_events(struct topic *topics){
-
-        while ( topics != NULL ){
-
-                printf("topic %s\n\n", topics->name);
-
-                struct event *event_list_iterator = topics->ev_list;
-
-                while ( event_list_iterator!= NULL ){
-
-                        if ( strlen(event_list_iterator->parameter) )
-                                printf("parameter %s\n", event_list_iterator->parameter);
-                        printf("isDigit %d\n", event_list_iterator->isDigit);
-                        printf("comparison %s\n", event_list_iterator->comparison);
-                        printf("expected_value %s\n", event_list_iterator->expected_value);
-                        printf("sending email %s\n", event_list_iterator->email);
-
-                        struct email *email_list_iterator = event_list_iterator->receiv_emails_list;
-
-                        while ( email_list_iterator != NULL ){
-
-                                printf("receiving_email %s\n", email_list_iterator->email_name);
-                                email_list_iterator = email_list_iterator->next_email;
-                        }
-
-                        event_list_iterator = event_list_iterator->next_event;
-                }
-
-                printf("\n");
-
-                topics = topics->next_topic;
-        }
-}
-
-void print_topics(struct topic *topics){
-
-        struct topic *topics_list_iterator = topics;
-
-        while ( topics_list_iterator != NULL ){
-
-                printf("topic %s\n", topics_list_iterator->name);
-                topics_list_iterator = topics_list_iterator->next_topic;
-        }
-    
-        printf("\n");
-}
-
-int send_matched_events_emails(struct event *topics_events, struct message *msg_info){
+int send_matched_events_emails(struct topic *topics_events, struct message *msg_info){
 
         //      find which topic was received
 
@@ -152,10 +104,6 @@ struct event *topic_message_matches_event(struct event *matchedEvent, const char
         if ( jobj == NULL )
                 return NULL;
 
-        //else
-	        //printf("jobj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
-
-        // it needed ?
         struct event *iterator = matchedEvent;
 
         while ( iterator != NULL ){
@@ -169,7 +117,7 @@ struct event *topic_message_matches_event(struct event *matchedEvent, const char
 
                 enum json_type param_type = json_object_get_type(param);
 
-                if ( param_type == NULL ){
+                if ( param_type == json_type_null ){
 
                         return NULL;
                 }
@@ -180,9 +128,6 @@ struct event *topic_message_matches_event(struct event *matchedEvent, const char
                         if (compare_values(json_object_get_string(param), iterator->expected_value, iterator->comparison))
                                 return iterator;
                 }
-/*
-                else
-                        printf("type dont match\n");*/
 
                 iterator = iterator->next_event;
         }
@@ -191,11 +136,6 @@ struct event *topic_message_matches_event(struct event *matchedEvent, const char
 }
 
 static int compare_values(const char *msg, const char *expected_value, const char *comparison){
-/*
-        if (msg[0] == '"'){
-
-                printf("string quotes\n");
-        }*/
 
         if ( strcmp(comparison, "==") == 0 ){
 

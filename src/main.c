@@ -1,14 +1,13 @@
-#include <stdio.h>
 #include <syslog.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
 #include <signal.h>
 
+#include "mqtt_sub.h"
 #include "topic_event.h"
 #include "uci_data.h"
 #include "file_io.h"
-#include "mqtt_sub.h"
 #include "curl_email.h"
 #include "args.h"
 
@@ -18,7 +17,7 @@ void sig_handler(int signum){
 
   prog_run = 0;
 
-  syslog(LOG_NOTICE, "Received a SIGINT signal. Terminating program\n");
+  syslog(LOG_NOTICE, "MQTT: Received a SIGINT signal. Terminating program\n");
 }
 
 int main(int argc, char *argv[]){
@@ -30,8 +29,8 @@ int main(int argc, char *argv[]){
         struct topic *topics_events = NULL;
         int topics_n = 0;
         struct message msg_info = {NULL, 0, NULL, 0, 0};
-        struct arguments options = {"-", 0, "-", "-", "-"};
-        //struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/cert.cert.pem"};
+        //struct arguments options = {"-", 0, "-", "-", "-"};
+        struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/ca.cert.pem"};
 
         int rc = EXIT_SUCCESS;
 
@@ -62,8 +61,6 @@ int main(int argc, char *argv[]){
                 goto EXIT_PROGRAM;
         }
 
-        //print_events(topics_events);
-
         //      M Q     T E L E M E T R Y        T R A N S P O R T
 
         mqtt_ctx  = mqtt_init_subscribe(topics_n, topics_events, &msg_info, options);
@@ -82,9 +79,13 @@ int main(int argc, char *argv[]){
 
                         msg_info.received = 0;
 
-                        rc = send_matched_events_emails(topics_events, msg_info);
+                        rc = send_matched_events_emails(topics_events, &msg_info);
+                        if ( !rc )
+                                syslog(LOG_NOTICE, "MQTT: Received topic %s, matched event succesfuly send via email", msg_info.topic);
 
-                        rc = write_topic_to_file(msg_info);
+                        rc = write_topic_to_file(&msg_info);
+                        if ( rc )
+                                syslog(LOG_ERR, "MQTT: failed to write received message to file");
                 }
         }
 

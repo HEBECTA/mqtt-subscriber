@@ -28,20 +28,11 @@
 
 static struct uci_context* init_uci(const char *file, struct uci_package **pkg);
 
-bool event_belongs_to_topic(struct uci_section *s, const char *topic);
-
 int scan_topics_events(struct topic **topics);
 
 static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct topic *topics);
 
 struct smtp_info *scan_email(const char *user_group);
-
-static int get_events_nmb(struct uci_package *pkg);
-
-//int write_topics();
-
-int write_events();
-
 
 
 #endif

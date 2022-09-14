@@ -1,6 +1,8 @@
 #ifndef MQTT_SUB_H
 #define MQTT_SUB_H
 
+struct topic;
+
 #include <mosquitto.h>
 #include "topic_event.h"
 #include "args.h"
@@ -25,10 +27,6 @@ struct message{
 void subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos);
 
 void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message);
-
-void conncet_callback(struct mosquitto *mosq, void *obj, int rc);
-
-//void log_callback(struct mosquitto *mosq, void *obj, int level, const char *str);
 
 struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, struct message *msg_info, struct arguments options);
 

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <stdio.h>
 #include <syslog.h>
 
 static struct uci_context* init_uci(const char *file, struct uci_package **pkg){
@@ -84,7 +83,6 @@ int scan_topics_events(struct topic **topics){
                                 }
 
                                 strcpy(node->name, l->name);
-                                //node->name = l->name;
 
                                 node->next_topic = NULL;
                                 node->ev_list = NULL;
@@ -112,7 +110,7 @@ int scan_topics_events(struct topic **topics){
 
 EXIT_ERROR_SCAN_TOPICS_EVENTS:
 
-        free_topics_events(topics);
+        free_topics_events(*topics);
 
         uci_free_context(uci_ctx);
 
@@ -396,7 +394,6 @@ struct smtp_info *scan_email(const char *user_group){
                                 
 
                                 port = atoi(o->v.string);
-                                //smtp_info->port = atoi(o->v.string);
 
                                 if ( !port )
                                         goto EXIT_SCAN_EMAIL_ERROR;
@@ -413,15 +410,12 @@ struct smtp_info *scan_email(const char *user_group){
                                 ++port_len;
                                 } while (n != 0);
 
-                                //smtp_info->smtp_domain = (char *) malloc(sizeof(char) * strlen(o->v.string) + 1);
                                 smtp_info->smtp_domain = (char *) malloc(sizeof(char) * (strlen("smtp://") + strlen(o->v.string) + strlen(":") + port_len) + 1);
 
                                 if ( smtp_info->smtp_domain == NULL )
                                         goto EXIT_SCAN_EMAIL_ERROR;
                                 
                                 sprintf(smtp_info->smtp_domain, "smtp://%s:%d", o->v.string, port);
-
-                                //strcpy(smtp_info->smtp_domain, o->v.string);
 
                                 o = uci_lookup_option(uci_ctx, s, EMAIL_OPTION);
                                 if ( o == NULL )
@@ -494,22 +488,3 @@ EXIT_SCAN_EMAIL_ERROR:
 
         return NULL;
 }
-
-/*
-static int get_events_nmb(struct uci_package *pkg){
-
-        int events_nmb = 0;
-
-        struct uci_element *e;
-
-        uci_foreach_element( &pkg->sections, e){
-
-                struct uci_section *s = uci_to_section(e);
-
-                if ( strcmp(EVENT_CONFIG_SECTION, s->type) == 0 )
-                        ++events_nmb;
-        }
-
-        return events_nmb;
-}
-*/

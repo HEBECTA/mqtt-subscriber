@@ -1,6 +1,5 @@
 #include "curl_email.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <syslog.h>
@@ -17,7 +16,6 @@ static size_t payload_source(char *ptr, size_t size, size_t nmemb, void *userp)
     return 0;
   }
  
-  //data = &payload_text[upload_ctx->bytes_read];
   data = &upload_ctx->msg[upload_ctx->bytes_read];
  
   if(data) {
@@ -46,8 +44,6 @@ int send_emails(struct event *event, struct message *msg_info){
     
   struct email *email_list_iterator = event->receiv_emails_list;
   while ( email_list_iterator != NULL ){
-
-  //printf("sending email to %s, matched value %s\n", email_list_iterator->email_name, matchedEvent->expected_value);
   
     if ( send_email(sender_info, email_list_iterator->email_name, msg_info->topic, msg_info->msg) )
       syslog(LOG_ERR, "MQTT: Failed to send email to %s\n", email_list_iterator->email_name);
@@ -114,13 +110,7 @@ int send_email(struct smtp_info *sender_info, const char *receiver, const char *
 
     curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
 
-    //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
- 
     res = curl_easy_perform(curl);
- 
-    if(res != CURLE_OK)
-      fprintf(stderr, "curl_easy_perform() failed: %s\n",
-              curl_easy_strerror(res));
  
 EXIT_SEND_EMAIL:
 
