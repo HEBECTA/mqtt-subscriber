@@ -29,8 +29,7 @@ int main(int argc, char *argv[]){
         struct topic *topics_events = NULL;
         int topics_n = 0;
         struct message msg_info = {NULL, 0, NULL, 0, 0};
-        //struct arguments options = {"-", 0, "-", "-", "-"};
-        struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/ca.cert.pem"};
+        struct arguments options = {"-", 0, "-", "-", "-"};
 
         int rc = EXIT_SUCCESS;
 
@@ -80,8 +79,8 @@ int main(int argc, char *argv[]){
                         msg_info.received = 0;
 
                         rc = send_matched_events_emails(topics_events, &msg_info);
-                        if ( !rc )
-                                syslog(LOG_NOTICE, "MQTT: Received topic %s, matched event succesfuly send via email", msg_info.topic);
+                        if ( rc )
+                                syslog(LOG_ERR, "MQTT: Failed to send email");
 
                         rc = write_topic_to_file(&msg_info);
                         if ( rc )

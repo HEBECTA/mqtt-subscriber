@@ -7,6 +7,15 @@ struct message;
 
 #include "mqtt_sub.h"
 
+enum comparison{
+        EQUAL,
+        N_EQUAL,
+        LESS,
+        MORE,
+        EQ_LESS,
+        EQ_MORE,
+};
+
 struct email {
 
         char *email_name;
@@ -17,7 +26,7 @@ struct event {
 
         char *parameter;
         bool isDigit;
-        char comparison[3]; 
+        enum comparison comparison;
         char *expected_value;
         char *email;
         struct email *receiv_emails_list;
@@ -44,6 +53,6 @@ int send_matched_events_emails(struct topic *topics_events, struct message *msg_
 
 struct event *topic_message_matches_event(struct event *matchedEvent, const char *msg);
 
-static int compare_values(const char *msg, const char *expected_value, const char *comparison);
+static int compare_values(const char *msg, const char *expected_value, enum comparison comparison);
 
 #endif

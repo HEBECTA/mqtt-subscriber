@@ -215,13 +215,7 @@ static int scan_events(struct uci_context *ctx, struct uci_package *pkg, struct 
                                 goto EXIT_SCAN_EVENT_ERROR;
                         }
 
-                        if ( strlen(o->v.string) > 2 ){
-
-                                rc = ENOBUFS;
-                                goto EXIT_SCAN_EVENT_ERROR;
-                        }
-
-                        strcpy(event_node->comparison, o->v.string);
+                        event_node->comparison = atoi(o->v.string);
 
                         //      V A L U E    
 

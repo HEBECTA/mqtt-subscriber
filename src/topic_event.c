@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <json-c/json.h>
+#include <syslog.h>
 
 struct topic *get_topic_by_name(struct topic *topics, const char *topic_name){
 
@@ -73,21 +74,23 @@ static void free_email_list(struct email *emails){
 int send_matched_events_emails(struct topic *topics_events, struct message *msg_info){
 
         //      find which topic was received
-
         struct topic *matchedTopic = get_topic_by_name(topics_events, msg_info->topic);
 
         if ( matchedTopic == NULL )
                 return ENOMSG;
 
         //      loop all topic events
-
         struct event *matchedEvent = topic_message_matches_event(matchedTopic->ev_list, msg_info->msg);
+
         while ( matchedEvent != NULL ){
 
                 //      if event is matched, send emails
                 if ( send_emails(matchedEvent, msg_info) )
                         return ECOMM;
+
+                syslog(LOG_NOTICE, "MQTT: Received topic %s, matched event succesfuly send via email", msg_info->topic);
                 
+                // continue looping events
                 matchedEvent = topic_message_matches_event(matchedEvent->next_event, msg_info->msg);
         }
 
@@ -95,7 +98,6 @@ int send_matched_events_emails(struct topic *topics_events, struct message *msg_
 }
 
 struct event *topic_message_matches_event(struct event *matchedEvent, const char *msg){
-
 
         struct json_object *jobj = NULL;
         
@@ -135,39 +137,39 @@ struct event *topic_message_matches_event(struct event *matchedEvent, const char
         return NULL;
 }
 
-static int compare_values(const char *msg, const char *expected_value, const char *comparison){
+static int compare_values(const char *msg, const char *expected_value, enum comparison comparison){
 
-        if ( strcmp(comparison, "==") == 0 ){
+        if ( comparison == EQUAL ){
 
                 if ( strcmp(msg, expected_value) == 0 )
                         return 1;
         }
 
-        else if ( strcmp(comparison, "<") == 0){
+        else if ( comparison == LESS){
 
                 if ( strcmp(msg, expected_value) < 0 )
                         return 1;
         }
 
-        else if ( strcmp(comparison, ">") == 0){
+        else if ( comparison == MORE ){
 
                 if ( strcmp(msg, expected_value) > 0 )
                         return 1;
         }
 
-        else if ( strcmp(comparison, "!=") == 0){
+        else if ( comparison == N_EQUAL){
 
                 if ( strcmp(msg, expected_value))
                         return 1;
         }
 
-        else if ( strcmp(comparison, "<=") == 0){
+        else if ( comparison == EQ_LESS){
 
                 if ( strcmp(msg, expected_value) <= 0 )
                         return 1;
         }
 
-        else if ( strcmp(comparison, ">=") == 0){
+        else if ( comparison == EQ_MORE){
 
                 if ( strcmp(msg, expected_value) >= 0 )
                         return 1;
