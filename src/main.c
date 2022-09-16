@@ -29,7 +29,8 @@ int main(int argc, char *argv[]){
         struct topic *topics_events = NULL;
         int topics_n = 0;
         struct message msg_info = {NULL, 0, NULL, 0, 0};
-        struct arguments options = {"-", 0, "-", "-", "-"};
+        //struct arguments options = {"-", 0, "-", "-", "-"};
+        struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/ca.cert.pem"};
 
         int rc = EXIT_SUCCESS;
 
