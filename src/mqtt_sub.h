@@ -15,14 +15,17 @@ struct topic;
 #define QoS2 2
 
 
+#define MQTT_TOPIC_NAME_SIZE 1024
+#define MQTT_MSG_SIZE 2048
+
 struct message{
 
         char *topic;
-        int topic_len;
         char *msg;
-        int msg_len;
         int received;
 };
+
+int init_message_buffer(struct message *msg_info);
 
 void subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos);
 
@@ -30,7 +33,7 @@ void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_
 
 struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, struct message *msg_info, struct arguments options);
 
-void free_message(struct message msg_ingo);
+void free__message_buffer(struct message msg_ingo);
 
 void mqtt_free(struct mosquitto *mosq);
 

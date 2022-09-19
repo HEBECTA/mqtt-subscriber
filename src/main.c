@@ -28,9 +28,9 @@ int main(int argc, char *argv[]){
         struct mosquitto *mqtt_ctx = NULL;
         struct topic *topics_events = NULL;
         int topics_n = 0;
-        struct message msg_info = {NULL, 0, NULL, 0, 0};
-        //struct arguments options = {"-", 0, "-", "-", "-"};
-        struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/ca.cert.pem"};
+        struct message msg_info = {NULL, NULL, 0};
+        struct arguments options = {"-", 0, "-", "-", "-"};
+        //struct arguments options = {"192.168.1.1", 1883, "tester", "tester", "/etc/certificates/ca.cert.pem"};
 
         int rc = EXIT_SUCCESS;
 
@@ -58,6 +58,13 @@ int main(int argc, char *argv[]){
         rc = scan_topics_events(&topics_events);
         if ( rc ){
                 syslog(LOG_ERR, "MQTT: failed to scan topics and events from config file\n");
+                goto EXIT_PROGRAM;
+        }
+
+        rc = init_message_buffer(&msg_info);
+        if ( rc ){
+
+                syslog(LOG_ERR, "MQTT: failed to initialize buffer for mqtt messages\n");
                 goto EXIT_PROGRAM;
         }
 
@@ -91,7 +98,7 @@ int main(int argc, char *argv[]){
 
 EXIT_PROGRAM:
 
-        free_message(msg_info);
+        free__message_buffer(msg_info);
 
         free_topics_events(topics_events);
 

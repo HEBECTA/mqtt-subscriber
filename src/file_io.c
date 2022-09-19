@@ -32,7 +32,7 @@ int write_topic_to_file(struct message *msg_info){
         if (rc != SQLITE_OK )
                 return rc;
 
-        char sql[TOPIC_MESSAGE_BUFFER_SIZE+TOPIC_NAME_MAX_SIZE+100];
+        char sql[MQTT_MSG_SIZE+MQTT_TOPIC_NAME_SIZE+100];
 
         time_t date = time(0); 
         sprintf(sql, "INSERT INTO TOPICS_DATA (Topic, Message, Date) "  \

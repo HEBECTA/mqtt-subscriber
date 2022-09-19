@@ -7,28 +7,38 @@
 
 #include "uci_data.h"
 
-void free_message(struct message msg_info){
+int init_message_buffer(struct message *msg_info){
 
-        if ( msg_info.topic != NULL ){
+        msg_info->topic = (char *) malloc(sizeof(char) * (MQTT_TOPIC_NAME_SIZE + 1));
 
+        if ( msg_info->topic == NULL )
+                return ENOMEM;
+
+        msg_info->msg = (char *) malloc(sizeof(char) * (MQTT_MSG_SIZE + 1));
+
+        if ( msg_info->msg == NULL ){
+
+                free(msg_info->topic);
+                return ENOMEM;
+        }
+
+        return 0;
+}
+
+void free__message_buffer(struct message msg_info){
+
+        if ( msg_info.topic != NULL )
                 free(msg_info.topic);
-                msg_info.topic = NULL;
-        }
-
-        if ( msg_info.msg != NULL ){
-
+        
+        if ( msg_info.msg != NULL )
                 free(msg_info.msg);
-                msg_info.msg = NULL;
-        }
-
+        
         msg_info.received = 0;
-        msg_info.topic_len = 0;
-        msg_info.msg_len = 0;
 }
 
 void subscribe_callback(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos){
 
-        syslog(LOG_NOTICE, "Subscribed (mid: %d): QoS %d", mid, granted_qos[0]);
+        syslog(LOG_NOTICE, "MQTT: Subscribed (mid: %d): QoS %d", mid, granted_qos[0]);
 
         for(int i=1; i<qos_count; i++)
                 syslog(LOG_NOTICE, ", %d", granted_qos[i]);
@@ -38,52 +48,16 @@ void message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_
 
         struct message *msg_info = (struct message *) obj;
 
-        // increase buff size if new message is larger than previous ones
-        int local_topic_len = strlen(message->topic);
-        int local_message_len = strlen((char*) message->payload);
+        int received_topic_len = strlen(message->topic);
+        int received_message_len = strlen((char*) message->payload);
 
-        if ( msg_info->topic_len < local_topic_len ){
+        if ( MQTT_TOPIC_NAME_SIZE < received_topic_len || MQTT_MSG_SIZE < received_message_len ){
 
-                if ( msg_info->topic  != NULL ){
-
-                        free(msg_info->topic);
-                }
-
-                msg_info->topic = (char *) malloc(sizeof(char) * (local_topic_len + 1));
-
-                if ( msg_info->topic == NULL ){
-
-                        syslog(LOG_ERR, "MQTT, failed to copy topic name\n");
-                        msg_info->received = 0;
-                        return;
-                }
-
-                msg_info->topic_len = local_topic_len;
+               syslog(LOG_ERR, "MQTT: Received message is to large for buffer");
+               return;
         }
 
         strcpy(msg_info->topic, message->topic);
-
-        if ( msg_info->msg_len < local_message_len ){
-
-                if ( msg_info->msg  != NULL ){
-
-                        free(msg_info->msg);
-                }
-
-                msg_info->msg = (char *) malloc(sizeof(char) * (local_message_len + 1));
-
-                if ( msg_info->msg == NULL ){
-
-                        free(msg_info->topic);
-                        msg_info->topic_len = 0;
-                        syslog(LOG_ERR, "MQTT, failed to copy received message\n");
-                        msg_info->received = 0;
-                        return;
-                }
-
-                msg_info->msg_len = local_message_len;
-        }
-
         strcpy(msg_info->msg, (char*) message->payload);
 
         msg_info->received = 1;
