@@ -125,14 +125,11 @@ struct mosquitto *mqtt_init_subscribe(int topics_nmb, struct topic *topics, stru
                 rc = mosquitto_subscribe(mosq, NULL, topics->name, QoS0);
                 if ( rc ){
                         syslog(LOG_ERR, "MQTT: Failed to subscribe topic = %s\n", topics->name);
-                        break;
+                        goto EXIT_MQTT_INIT_ERROR;
                 }
 
                 topics = topics->next_topic;
         }
-
-        if ( rc )
-                goto EXIT_MQTT_INIT_ERROR;
 
         return mosq;
 

@@ -71,8 +71,11 @@ int main(int argc, char *argv[]){
         //      M Q     T E L E M E T R Y        T R A N S P O R T
 
         mqtt_ctx  = mqtt_init_subscribe(topics_n, topics_events, &msg_info, options);
-        if ( mqtt_ctx == NULL )
+        if ( mqtt_ctx == NULL ){
+
+                rc = EPERM;
                 goto EXIT_PROGRAM;
+        }
 
         while ( prog_run ){
 
